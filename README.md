@@ -6,6 +6,8 @@ Banner Carousel module for [Oqtane](https://www.oqtane.org/) targeting **.NET 10
 
 This module displays a Bootstrap carousel from module records and provides an edit/manage UI for administrators.
 
+Recommended banner image ratio: **16:7**.
+
 ## Features
 
 - Carousel rendering on the view page (`Index.razor`)
