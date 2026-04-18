@@ -1,0 +1,368 @@
+@using Oqtane.Modules.Controls
+@using Oqtane.Services
+@using GIBS.Module.BannerCarousel.Services
+@using GIBS.Module.BannerCarousel.Models
+
+@namespace GIBS.Module.BannerCarousel
+@inherits ModuleBase
+@inject IBannerCarouselService ClientBannerCarouselService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Edit> Localizer
+@inject IFileService FileService
+@inject ISettingService SettingService
+
+<form @ref="form" class="@(validated ? " was-validated" : "needs-validation" )" novalidate>
+    <div class="container">
+        <div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="title" HelpText="Enter a title" ResourceKey="Title">Title: </Label>
+            <div class="col-sm-9">
+                <input id="title" class="form-control" @bind="@_title" maxlength="200" required />
+            </div>
+        </div>
+        <div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="description" HelpText="Enter a description" ResourceKey="Description">Description: </Label>
+            <div class="col-sm-9">
+                <textarea id="description" class="form-control" @bind="@_description" maxlength="400"></textarea>
+            </div>
+        </div>
+<div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="upload" HelpText="Upload the file you want" ResourceKey="Label.UploadImage">Image: </Label>
+            <div class="col-sm-9">
+                <FileManager UploadMultiple="false" Filter="jpg,png,gif,jpeg"
+                             FolderId="@_folderId"
+                             ShowSuccess="true" ShowFolders="false" ShowFiles="true" ShowImage="true"
+                             OnUpload="@HandleFileUpload" OnSelectFile="@HandleFileSelect" />
+            </div>
+        </div>
+
+        <div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="imageURL" HelpText="Upload or enter an image URL." ResourceKey="Label.ImageURL">@Localizer["Label.ImageURL"]: </Label>
+            <div class="col-sm-9">
+                <input id="imageURL" class="form-control mb-1" @bind="@_imageUrl" placeholder="Paste or enter image URL" />
+
+                @if (!string.IsNullOrEmpty(_imageUrl))
+                {
+                    <img src="@_imageUrl" alt="Image preview" style="max-width: 280px; max-height: 200px; margin-top: 5px; margin-bottom: 10px;" />
+                }
+            </div>
+        </div>
+        <div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="showcaption" HelpText="Show caption on slide" ResourceKey="ShowCaption">Show Caption: </Label>
+            <div class="col-sm-9">
+                <input id="showcaption" type="checkbox" class="form-check-input" @bind="@_showCaption" />
+            </div>
+        </div>
+        <div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="isactive" HelpText="Enable this slide" ResourceKey="IsActive">Is Active: </Label>
+            <div class="col-sm-9">
+                <input id="isactive" type="checkbox" class="form-check-input" @bind="@_isActive" />
+            </div>
+        </div>
+        <div class="row mb-1 align-items-center">
+            <Label Class="col-sm-3" For="orderby" HelpText="Enter the order" ResourceKey="OrderBy">Order By: </Label>
+            <div class="col-sm-9">
+                <input id="orderby" class="form-control" type="number" @bind="@_orderBy" />
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn btn-success" @onclick="Save">@Localizer["Save"]</button>
+    <NavLink class="btn btn-secondary" href="@NavigateUrl()">@Localizer["Cancel"]</NavLink>
+    <br /><br />
+    @if (PageState.Action == "Edit")
+    {
+    <AuditInfo CreatedBy="@_createdby" CreatedOn="@_createdon" ModifiedBy="@_modifiedby" ModifiedOn="@_modifiedon"></AuditInfo>
+    }
+</form>
+
+@if (_bannerCarousels != null && _bannerCarousels.Count != 0)
+{
+    <Pager Items="@_bannerCarousels">
+        <Header>
+            <th style="width: 1px;">&nbsp;</th>
+            <th style="width: 1px;">&nbsp;</th>
+            <th>@Localizer["Title"]</th>
+            <th>@Localizer["Description"]</th>
+            <th>@Localizer["ShowCaption"]</th>
+            <th style="width: 1px;">&nbsp;</th>
+            <th style="width: 1px;">&nbsp;</th>
+            <th class="text-center">@Localizer["OrderBy"]</th>
+                <th class="text-center">@Localizer["IsActive"]</th>
+        </Header>
+        <Row>
+            <td><ActionLink Action="Edit" Parameters="@($"id=" + context.BannerCarouselId.ToString())" ResourceKey="Edit" /></td>
+            <td><ActionDialog Header="Delete BannerCarousel" Message="Are You Sure You Wish To Delete This BannerCarousel?" Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" ResourceKey="Delete" Id="@context.BannerCarouselId.ToString()" /></td>
+            <td>@context.Title</td>
+            <td>@context.Description</td>
+            <td>@if (context.ShowCaption) { <i class="oi oi-check"></i> }</td>
+            <td>
+                <button type="button" class="btn btn-outline-primary" title="Move Up" @onclick="@(async () => await MoveUp(context))" disabled="@(context.OrderBy == _bannerCarousels.Min(c => c.OrderBy))"><i class="oi oi-arrow-circle-top"></i></button>
+            </td>
+            <td>
+                <button type="button" class="btn btn-outline-primary" title="Move Down" @onclick="@(async () => await MoveDown(context))" disabled="@(context.OrderBy == _bannerCarousels.Max(c => c.OrderBy))"><i class="oi oi-arrow-circle-bottom"></i></button>
+            </td>
+            <td class="text-center">@context.OrderBy</td>
+            <td class="text-center">@if (context.IsActive) { <i class="oi oi-check"></i> }</td>
+        </Row>
+    </Pager>
+}
+
+@code {
+    public override SecurityAccessLevel SecurityAccessLevel => SecurityAccessLevel.Edit;
+
+    public override string Actions => "Add,Edit";
+
+    public override string Title => "Manage BannerCarousel";
+
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Stylesheet("_content/GIBS.Module.BannerCarousel/Module.css")
+    };
+
+    private ElementReference form;
+    private bool validated = false;
+
+    private int _id;
+    private string _title;
+    private string _description;
+    private string _imageUrl = string.Empty;
+    private bool _showCaption = true;
+    private bool _isActive = true;
+    private int _orderBy;
+    private string _createdby;
+    private DateTime _createdon;
+    private string _modifiedby;
+    private DateTime _modifiedon;
+    private int _folderId = 1;
+    private List<BannerCarousel> _bannerCarousels;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+             // Correctly parse the setting as an integer
+            if (int.TryParse(SettingService.GetSetting(ModuleState.Settings, "ImageFolder", "1"), out int folderId))
+            {
+                _folderId = folderId;
+            }
+            else
+            {
+                // Handle the case where the setting is not a valid integer
+                _folderId = 1; // Default value or handle error
+            }
+
+            if (PageState.Action == "Edit")
+            {
+                _id = Int32.Parse(PageState.QueryString["id"]);
+                BannerCarousel BannerCarousel = await ClientBannerCarouselService.GetBannerCarouselAsync(_id, ModuleState.ModuleId);
+                if (BannerCarousel != null)
+                {
+                    _title= BannerCarousel.Title;
+                    _description = BannerCarousel.Description;
+                    _imageUrl = BannerCarousel.ImageUrl;
+                    _showCaption = BannerCarousel.ShowCaption;
+                    _isActive = BannerCarousel.IsActive;
+                    _orderBy = BannerCarousel.OrderBy;
+                    _createdby = BannerCarousel.CreatedBy;
+                    _createdon = BannerCarousel.CreatedOn;
+                    _modifiedby = BannerCarousel.ModifiedBy;
+                    _modifiedon = BannerCarousel.ModifiedOn;
+                }
+            }
+
+            _bannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+            if (PageState.Action == "Add")
+            {
+                int maxOrder = (_bannerCarousels != null && _bannerCarousels.Count > 0) ? _bannerCarousels.Max(c => c.OrderBy) : 0;
+                _orderBy = maxOrder + 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading BannerCarousel {BannerCarouselId} {Error}", _id, ex.Message);
+            AddModuleMessage(Localizer["Message.LoadError"], MessageType.Error);
+        }
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            validated = true;
+            var interop = new Oqtane.UI.Interop(JSRuntime);
+            if (await interop.FormValid(form))
+            {
+                if (PageState.Action == "Add")
+                {
+                    BannerCarousel BannerCarousel = new BannerCarousel();
+                    BannerCarousel.ModuleId = ModuleState.ModuleId;
+                    BannerCarousel.Title = _title;
+                    BannerCarousel.Description = _description;
+                    BannerCarousel.ImageUrl = _imageUrl;
+                    BannerCarousel.ShowCaption = _showCaption;
+                    BannerCarousel.IsActive = _isActive;
+                    BannerCarousel.OrderBy = _orderBy;
+                    BannerCarousel = await ClientBannerCarouselService.AddBannerCarouselAsync(BannerCarousel);
+                    await logger.LogInformation("BannerCarousel Added {BannerCarousel}", BannerCarousel);
+                }
+                else
+                {
+                    BannerCarousel BannerCarousel = await ClientBannerCarouselService.GetBannerCarouselAsync(_id, ModuleState.ModuleId);
+                    BannerCarousel.Title = _title;
+                    BannerCarousel.Description = _description;
+                    BannerCarousel.ImageUrl = _imageUrl;
+                    BannerCarousel.ShowCaption = _showCaption;
+                    BannerCarousel.IsActive = _isActive;
+                    BannerCarousel.OrderBy = _orderBy;
+                    await ClientBannerCarouselService.UpdateBannerCarouselAsync(BannerCarousel);
+                    await logger.LogInformation("BannerCarousel Updated {BannerCarousel}", BannerCarousel);
+                }
+               // Reset form validation state and clear fields after successful save
+                _bannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+                ResetForm();
+            }
+            else
+            {
+                AddModuleMessage(Localizer["Message.SaveValidation"], MessageType.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Saving BannerCarousel {Error}", ex.Message);
+            AddModuleMessage(Localizer["Message.SaveError"], MessageType.Error);
+        }
+    }
+
+    private void ResetForm()
+    {
+        _id = 0;
+        _title = string.Empty;
+        _description = string.Empty;
+        _imageUrl = string.Empty;
+        _showCaption = true;
+        _isActive = true;
+        _createdby = string.Empty;
+        _createdon = DateTime.MinValue;
+        _modifiedby = string.Empty;
+        _modifiedon = DateTime.MinValue;
+        validated = false;
+
+        int maxOrder = (_bannerCarousels != null && _bannerCarousels.Count > 0) ? _bannerCarousels.Max(c => c.OrderBy) : 0;
+        _orderBy = maxOrder + 1;
+    }
+
+    private async void HandleFileUpload(int fileId)
+    {
+        if (_imageUrl != null)
+        {
+            var uploadedFile = await FileService.GetFileAsync(fileId);
+            if (uploadedFile != null)
+            {
+                _imageUrl = uploadedFile.Url;
+
+                if (string.IsNullOrWhiteSpace(_title))
+                {
+                    var segments = (_imageUrl ?? string.Empty).Split('/');
+                    var fileName = segments.Length > 0 ? segments[segments.Length - 1] : string.Empty;
+                    var fileNameWithoutQuery = fileName.Split('?')[0];
+                    var dotIndex = fileNameWithoutQuery.LastIndexOf('.');
+                    var title = dotIndex > 0 ? fileNameWithoutQuery[..dotIndex] : fileNameWithoutQuery;
+                    title = System.Text.RegularExpressions.Regex.Replace(title, @"^[0-9]+_", "").Trim();
+                    _title = title.Replace("_", " ");
+                }
+
+
+            }
+            else
+            {
+                _imageUrl = null;
+            }
+            // StateHasChanged();
+            // await Save();
+            StateHasChanged();
+        }
+    }
+
+    private async void HandleFileSelect(int fileId)
+    {
+        var selectedFile = await FileService.GetFileAsync(fileId);
+        if (selectedFile != null)
+        {
+            _imageUrl = selectedFile.Url;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Delete(BannerCarousel bannerCarousel)
+    {
+        try
+        {
+            await ClientBannerCarouselService.DeleteBannerCarouselAsync(bannerCarousel.BannerCarouselId, ModuleState.ModuleId);
+            await logger.LogInformation("BannerCarousel Deleted {BannerCarousel}", bannerCarousel);
+            _bannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Deleting BannerCarousel {BannerCarousel} {Error}", bannerCarousel, ex.Message);
+            AddModuleMessage(Localizer["Message.DeleteError"], MessageType.Error);
+        }
+    }
+
+    private async Task MoveUp(BannerCarousel bannerCarousel)
+    {
+        try
+        {
+            var previousItem = _bannerCarousels
+                .Where(c => c.OrderBy < bannerCarousel.OrderBy)
+                .OrderByDescending(c => c.OrderBy)
+                .FirstOrDefault();
+
+            if (previousItem != null)
+            {
+                int tempOrder = bannerCarousel.OrderBy;
+                bannerCarousel.OrderBy = previousItem.OrderBy;
+                previousItem.OrderBy = tempOrder;
+
+                await ClientBannerCarouselService.UpdateBannerCarouselAsync(bannerCarousel);
+                await ClientBannerCarouselService.UpdateBannerCarouselAsync(previousItem);
+
+                _bannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Moving BannerCarousel Up {Error}", ex.Message);
+            AddModuleMessage(Localizer["Message.SaveError"], MessageType.Error);
+        }
+    }
+
+    private async Task MoveDown(BannerCarousel bannerCarousel)
+    {
+        try
+        {
+            var nextItem = _bannerCarousels
+                .Where(c => c.OrderBy > bannerCarousel.OrderBy)
+                .OrderBy(c => c.OrderBy)
+                .FirstOrDefault();
+
+            if (nextItem != null)
+            {
+                int tempOrder = bannerCarousel.OrderBy;
+                bannerCarousel.OrderBy = nextItem.OrderBy;
+                nextItem.OrderBy = tempOrder;
+
+                await ClientBannerCarouselService.UpdateBannerCarouselAsync(bannerCarousel);
+                await ClientBannerCarouselService.UpdateBannerCarouselAsync(nextItem);
+
+                _bannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Moving BannerCarousel Down {Error}", ex.Message);
+            AddModuleMessage(Localizer["Message.SaveError"], MessageType.Error);
+        }
+    }
+}

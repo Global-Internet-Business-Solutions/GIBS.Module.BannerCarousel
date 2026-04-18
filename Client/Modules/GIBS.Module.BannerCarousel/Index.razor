@@ -1,0 +1,96 @@
+@using GIBS.Module.BannerCarousel.Services
+@using GIBS.Module.BannerCarousel.Models
+
+@namespace GIBS.Module.BannerCarousel
+@inherits ModuleBase
+@inject IBannerCarouselService ClientBannerCarouselService
+@inject NavigationManager NavigationManager
+@inject IStringLocalizer<Index> Localizer
+
+@if (_BannerCarousels == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (_BannerCarousels.Count != 0)
+    {
+        <div id="bannerCarousel" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-inner">
+                @for (var i = 0; i < _BannerCarousels.Count; i++)
+                {
+                    var item = _BannerCarousels[i];
+                    <div class="carousel-item @(i == 0 ? "active" : "")" style="position: relative;">
+                        <div class="ratio" style="--bs-aspect-ratio: 43.75%;">
+                            <img src="@item.ImageUrl" class="d-block w-100 object-fit-cover" alt="@($"Banner image {item.BannerCarouselId}")">
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(item.Title) && item.ShowCaption)
+                        {
+                            <div class="custom-banner-overlay-bottom bg-dark bg-opacity-50 p-3 rounded ">
+                                <h2 class="text-white">@item.Title</h2>
+                                @if (!string.IsNullOrWhiteSpace(item.Description) && item.ShowCaption)
+                                {
+                                    <p class="text-white text-center">@item.Description</p>
+                                }
+
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <button class="carousel-control-prev" type="button" data-bs-target="#bannerCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon"></span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#bannerCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon"></span>
+            </button>
+        </div>
+    }
+    else
+    {
+        <p>@Localizer["Message.DisplayNone"]</p>
+    }
+}
+ <div class="text-end"><ActionLink Action="Add" Security="SecurityAccessLevel.Edit" Text="Manage Carousel" ResourceKey="Add" /></div>
+
+@code {
+    public override string RenderMode => RenderModes.Static;
+
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Stylesheet("_content/GIBS.Module.BannerCarousel/Module.css?1=2"),
+      
+    };
+
+    List<BannerCarousel> _BannerCarousels;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _BannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading BannerCarousel {Error}", ex.Message);
+            AddModuleMessage(Localizer["Message.LoadError"], MessageType.Error);
+        }
+    }
+
+    private async Task Delete(BannerCarousel BannerCarousel)
+    {
+        try
+        {
+            await ClientBannerCarouselService.DeleteBannerCarouselAsync(BannerCarousel.BannerCarouselId, ModuleState.ModuleId);
+            await logger.LogInformation("BannerCarousel Deleted {BannerCarousel}", BannerCarousel);
+            _BannerCarousels = await ClientBannerCarouselService.GetBannerCarouselsAsync(ModuleState.ModuleId);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Deleting BannerCarousel {BannerCarousel} {Error}", BannerCarousel, ex.Message);
+            AddModuleMessage(Localizer["Message.DeleteError"], MessageType.Error);
+        }
+    }
+}
