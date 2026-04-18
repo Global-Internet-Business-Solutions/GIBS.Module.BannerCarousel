@@ -36,7 +36,7 @@
         </div>
 
         <div class="row mb-1 align-items-center">
-            <Label Class="col-sm-3" For="imageURL" HelpText="Upload or enter an image URL." ResourceKey="Label.ImageURL">@Localizer["Label.ImageURL"]: </Label>
+            <Label Class="col-sm-3" For="imageURL" HelpText="Upload or enter an image URL." ResourceKey="Label.ImageURL">@Localizer["Label.ImageURL"] </Label>
             <div class="col-sm-9">
                 <input id="imageURL" class="form-control mb-1" @bind="@_imageUrl" placeholder="Paste or enter image URL" />
 
@@ -80,6 +80,7 @@
         <Header>
             <th style="width: 1px;">&nbsp;</th>
             <th style="width: 1px;">&nbsp;</th>
+            <th>@Localizer["Photo"]</th>
             <th>@Localizer["Title"]</th>
             <th>@Localizer["Description"]</th>
             <th>@Localizer["ShowCaption"]</th>
@@ -89,8 +90,9 @@
                 <th class="text-center">@Localizer["IsActive"]</th>
         </Header>
         <Row>
-            <td><ActionLink Action="Edit" Parameters="@($"id=" + context.BannerCarouselId.ToString())" ResourceKey="Edit" /></td>
-            <td><ActionDialog Header="Delete BannerCarousel" Message="Are You Sure You Wish To Delete This BannerCarousel?" Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" ResourceKey="Delete" Id="@context.BannerCarouselId.ToString()" /></td>
+            <td><ActionLink Action="Edit" IconName="pencil" IconOnly="true" Parameters="@($"id=" + context.BannerCarouselId.ToString())" ResourceKey="Edit" /></td>
+            <td><ActionDialog Header="Delete BannerCarousel" IconName="trash" IconOnly="true" Message="Are You Sure You Wish To Delete This BannerCarousel?" Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" ResourceKey="Delete" Id="@context.BannerCarouselId.ToString()" /></td>
+            <td class="text-center"><img src="@context.ImageUrl" alt="Image preview" style="max-width: 220px; max-height: 180px;" /></td>
             <td>@context.Title</td>
             <td>@context.Description</td>
             <td>@if (context.ShowCaption) { <i class="oi oi-check"></i> }</td>
@@ -111,7 +113,7 @@
 
     public override string Actions => "Add,Edit";
 
-    public override string Title => "Manage BannerCarousel";
+    public override string Title => "Manage Banner Carousel";
 
     public override List<Resource> Resources => new List<Resource>()
     {
